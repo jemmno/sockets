@@ -10,43 +10,18 @@ if (!$socket)
         die('Unable to create AF_UNIX socket');
 
 
-        // Bind, listen and disable blocking
-if ($socket === FALSE
-  || ! socket_bind($socket, $host, $port)
-  || ! socket_listen($socket)
-  || socket_set_nonblock($socket) !== TRUE)
-  trigger_socket_error();
+// Bind, listen and disable blocking
+if ($socket === FALSE || ! socket_bind($socket, $host, $port)) trigger_socket_error();
 
 
-while(1) // server never exits
-{
-// receive query
-if (!socket_set_block($socket))
-        die('Unable to set blocking mode for socket');
-$buf = '';
-$from = '';
-echo "Ready to receive in port $port...\n";
-
-// will block to wait client query
-$bytes_received = socket_recvfrom($socket, $buf, 65536, 0, $from);
-if ($bytes_received == -1)
-        die('An error occured while receiving from the socket');
-echo "Received $buf from $from\n";
-
-$buf .= "->Response"; // process client query here
-
-// send response
-if (!socket_set_nonblock($socket))
-        die('Unable to set nonblocking mode for socket');
-// client side socket filename is known from client request: $from
-$len = strlen($buf);
-$bytes_sent = socket_sendto($socket, $buf, $len, 0, $from);
-if ($bytes_sent == -1)
-        die('An error occured while sending to the socket');
-else if ($bytes_sent != $len)
-        die($bytes_sent . ' bytes have been sent instead of the ' . $len . ' bytes expected');
-echo "Request processed\n";
+$clients = []; 
+while (true){ 
+    socket_recvfrom($socket, $buffer, 32768, 0, $ip, $port) === true or onSocketFailure("Failed to receive packet", $socket); 
+    $address = "$ip:$port"; 
+    if (!isset($clients[$address])) $clients[$address] = new Client(); 
+    $clients[$address]->handlePacket($buffer); 
 }
+
 
   /**
    * Trigger an exception with the last socket error.
